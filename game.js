@@ -548,8 +548,19 @@ const Game = (() => {
 
         updateScoreboard();
 
-        // Show result splash
         const pointsText = points > 0 ? `+${points} POINTS` : points < 0 ? `${points} POINTS` : '0 POINTS';
+
+        // Broadcast result to connected players
+        if (typeof Network !== 'undefined' && Network.isHost()) {
+            Network.broadcastResult({
+                label: scoring.label,
+                points,
+                description: `${scoring.label} by ${player.name}! ${pointsText}`,
+            });
+            Network.broadcastGameState({ scores: state.scores, round: state.round });
+        }
+
+        // Show result splash
         showResultSplash(scoring.label, pointsText, scoring.cssClass).then(() => {
             advanceTurn();
         });
