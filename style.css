@@ -1127,6 +1127,195 @@ body {
   transform: translateX(-50%);
 }
 
+/* ── Controls Hint (keyboard) ── */
+.controls-hint {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.controls-hint.active {
+  opacity: 1;
+}
+
+.controls-keys {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.key-row {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.key {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0;
+  box-shadow: 0 2px 0 rgba(255, 255, 255, 0.08);
+}
+
+.key.space-key {
+  width: 120px;
+  font-size: 0.55rem;
+  letter-spacing: 0.15em;
+}
+
+.controls-labels {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ctrl-label {
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.25);
+  text-align: center;
+}
+
+/* ── Touch Overlay (mobile host) ── */
+.touch-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.touch-overlay.active {
+  opacity: 1;
+}
+
+.touch-aim-zone {
+  flex: 1;
+  position: relative;
+  touch-action: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.touch-aim-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.touch-reticle {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--ringer-green);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(0, 255, 102, 0.3);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: left 0.05s, top 0.05s;
+}
+
+.touch-reticle::before,
+.touch-reticle::after {
+  content: '';
+  position: absolute;
+  background: var(--ringer-green);
+}
+
+.touch-reticle::before {
+  width: 1px;
+  height: 40px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.touch-reticle::after {
+  height: 1px;
+  width: 40px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.touch-throw-btn {
+  height: 100px;
+  border: none;
+  border-top: 2px solid var(--void-glow);
+  background: var(--hud-glass);
+  color: var(--hud-bright);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.touch-throw-btn:active,
+.touch-throw-btn.charging {
+  border-color: var(--ringer-green);
+  background: rgba(0, 255, 102, 0.08);
+}
+
+.touch-throw-label {
+  position: relative;
+  z-index: 1;
+}
+
+.touch-power-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.touch-power-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--ringer-green);
+  transition: width 0.05s linear, background 0.2s;
+}
+
 /* ── Active Player Badge ── */
 #active-player-badge {
   position: absolute;
@@ -1739,5 +1928,17 @@ body.shake-heavy {
 
   #fuse-timer {
     font-size: 2.5rem;
+  }
+
+  /* Hide keyboard hint on mobile — touch overlay takes over */
+  .controls-hint {
+    display: none !important;
+  }
+}
+
+/* Desktop override — never show touch overlay from CSS if no touch */
+@media (min-width: 769px) and (hover: hover) and (pointer: fine) {
+  .touch-overlay {
+    display: none !important;
   }
 }

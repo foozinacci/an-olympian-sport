@@ -186,6 +186,7 @@ const Game = (() => {
                 updatePowerMeter(currentPower);
                 GameScene.setCharge(currentPower);
                 if (chargeHum) chargeHum.setPower(currentPower);
+                updateTouchPowerBar();
             }
 
             aimLoopId = requestAnimationFrame(update);
@@ -196,6 +197,156 @@ const Game = (() => {
     function stopAimLoop() {
         if (aimLoopId) cancelAnimationFrame(aimLoopId);
         aimLoopId = null;
+    }
+
+    /* ── Controls hint + touch overlay ── */
+    let touchInputSetup = false;
+
+    function showControlsHint() {
+        const hint = $('controls-hint');
+        const touchOverlay = $('touch-overlay');
+
+        // If it's a remote player's turn, don't show any local controls
+        if (typeof Network !== 'undefined' && Network.isHost() && state) {
+            const activeKey = state.turnOrder[state.currentTurnIndex];
+            const lobby = Network.lobby;
+            const seatInfo = lobby.players[activeKey];
+            if (seatInfo && !seatInfo.isCPU && seatInfo.peerId) {
+                // Remote player's turn — hide all local controls
+                if (hint) hint.classList.remove('active');
+                if (touchOverlay) { touchOverlay.classList.remove('active'); touchOverlay.classList.add('hidden'); }
+                return;
+            }
+        }
+
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+        if (isTouchDevice) {
+            // Mobile host — show touch overlay
+            if (hint) hint.classList.remove('active');
+            if (touchOverlay) {
+                touchOverlay.classList.remove('hidden');
+                touchOverlay.classList.add('active');
+            }
+            if (!touchInputSetup) {
+                setupTouchInput();
+                touchInputSetup = true;
+            }
+        } else {
+            // Desktop — show keyboard hint
+            if (hint) hint.classList.add('active');
+            if (touchOverlay) {
+                touchOverlay.classList.add('hidden');
+                touchOverlay.classList.remove('active');
+            }
+        }
+    }
+
+    function hideControlsHint() {
+        const hint = $('controls-hint');
+        const touchOverlay = $('touch-overlay');
+        if (hint) hint.classList.remove('active');
+        if (touchOverlay) {
+            touchOverlay.classList.remove('active');
+            touchOverlay.classList.add('hidden');
+        }
+    }
+
+    /* ── Touch input on host screen (mobile) ── */
+    function setupTouchInput() {
+        const aimZone = $('touch-aim-zone');
+        const throwBtn = $('touch-throw-btn');
+        if (!aimZone || !throwBtn) return;
+
+        // Aim zone — drag to move aim
+        aimZone.addEventListener('touchstart', e => {
+            e.preventDefault();
+        }, { passive: false });
+
+        aimZone.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if (gamePhase !== 'aiming') return;
+            const touch = e.touches[0];
+            const rect = aimZone.getBoundingClientRect();
+            const relX = (touch.clientX - rect.left) / rect.width;
+            const relY = (touch.clientY - rect.top) / rect.height;
+
+            currentAimH = (relX - 0.5) * 2; // -1 to 1
+            currentAimV = 1 - relY; // 0 (bottom) to 1 (top)
+            currentAimH = Math.max(-1, Math.min(1, currentAimH));
+            currentAimV = Math.max(0, Math.min(1, currentAimV));
+
+            GameScene.setAim(currentAimH, currentAimV);
+
+            // Update reticle
+            const reticle = $('touch-reticle');
+            if (reticle) {
+                reticle.style.left = `${relX * 100}%`;
+                reticle.style.top = `${relY * 100}%`;
+            }
+
+            // Update HUD aim dot too
+            const dot = $('aim-dot');
+            if (dot) {
+                dot.style.left = `${50 + currentAimH * 35}%`;
+                dot.style.top = `${50 - (currentAimV - 0.5) * 60}%`;
+            }
+        }, { passive: false });
+
+        // Throw button — hold to charge, release to throw
+        let touchCharging = false;
+
+        const startTouchCharge = (e) => {
+            e.preventDefault();
+            if (gamePhase !== 'aiming' || powerCharging) return;
+            touchCharging = true;
+            powerCharging = true;
+            currentPower = 0;
+            if (chargeHum) chargeHum.stop();
+            chargeHum = AudioEngine.startChargeHum();
+            $('power-meter-container').classList.add('active');
+            throwBtn.classList.add('charging');
+            const label = throwBtn.querySelector('.touch-throw-label');
+            if (label) label.textContent = 'CHARGING...';
+        };
+
+        const endTouchCharge = (e) => {
+            e.preventDefault();
+            if (!touchCharging || gamePhase !== 'aiming') return;
+            touchCharging = false;
+            powerCharging = false;
+            if (chargeHum) { chargeHum.stop(); chargeHum = null; }
+            throwBtn.classList.remove('charging');
+            const label = throwBtn.querySelector('.touch-throw-label');
+            if (label) label.textContent = 'HOLD TO CHARGE';
+
+            // Reset power bar
+            const fill = $('touch-power-fill');
+            if (fill) fill.style.width = '0%';
+
+            executeThrow();
+        };
+
+        throwBtn.addEventListener('touchstart', startTouchCharge, { passive: false });
+        throwBtn.addEventListener('touchend', endTouchCharge, { passive: false });
+        throwBtn.addEventListener('touchcancel', endTouchCharge, { passive: false });
+
+        // Mouse fallback for testing
+        throwBtn.addEventListener('mousedown', startTouchCharge);
+        throwBtn.addEventListener('mouseup', endTouchCharge);
+        throwBtn.addEventListener('mouseleave', e => { if (touchCharging) endTouchCharge(e); });
+    }
+
+    // Update touch power bar in aim loop
+    function updateTouchPowerBar() {
+        const fill = $('touch-power-fill');
+        if (!fill) return;
+        fill.style.width = `${currentPower * 100}%`;
+        if (currentPower < 0.2) fill.style.background = '#888';
+        else if (currentPower < 0.4) fill.style.background = '#bbbb33';
+        else if (currentPower < 0.7) fill.style.background = '#00ff66';
+        else if (currentPower < 0.9) fill.style.background = '#ff8833';
+        else fill.style.background = '#ff2222';
     }
 
     /* ══════════════════════════════════
@@ -382,7 +533,7 @@ const Game = (() => {
         // Hide aim-related HUD
         $('aim-indicator').classList.remove('active');
         $('power-meter-container').classList.remove('active');
-        $('controls-hint').style.display = 'none';
+        hideControlsHint();
 
         // Check overcooked
         if (currentPower >= 0.9) {
@@ -458,6 +609,7 @@ const Game = (() => {
             // Still aiming — explodes in hand
             gamePhase = 'result';
             stopTimer();
+            hideControlsHint();
 
             GameScene.detonateInHand();
             screenFlash('red');

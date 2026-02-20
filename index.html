@@ -209,8 +209,40 @@
       <div id="aim-dot"></div>
     </div>
 
-    <!-- Controls hint -->
-    <div id="controls-hint"></div>
+    <!-- Controls hint (keyboard) -->
+    <div id="controls-hint" class="controls-hint">
+      <div class="controls-keys">
+        <div class="key-row">
+          <div class="key">W</div>
+        </div>
+        <div class="key-row">
+          <div class="key">A</div>
+          <div class="key">S</div>
+          <div class="key">D</div>
+        </div>
+      </div>
+      <div class="controls-labels">
+        <div class="ctrl-label">WASD — AIM</div>
+        <div class="ctrl-label">SPACE — HOLD TO CHARGE, RELEASE TO THROW</div>
+      </div>
+      <div class="key-row">
+        <div class="key space-key">SPACE</div>
+      </div>
+    </div>
+
+    <!-- Touch overlay (mobile host) -->
+    <div id="touch-overlay" class="touch-overlay hidden">
+      <div id="touch-aim-zone" class="touch-aim-zone">
+        <div class="touch-aim-label">DRAG TO AIM</div>
+        <div id="touch-reticle" class="touch-reticle"></div>
+      </div>
+      <button id="touch-throw-btn" class="touch-throw-btn">
+        <span class="touch-throw-label">HOLD TO CHARGE</span>
+        <div id="touch-power-bar" class="touch-power-bar">
+          <div id="touch-power-fill" class="touch-power-fill"></div>
+        </div>
+      </button>
+    </div>
   </div>
 
   <!-- ═══════ SPLASH OVERLAY ═══════ -->
