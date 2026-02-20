@@ -1,1 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>DEGEN HORSESHOES 💣 — Hyperspace Arena</title>
+  <meta name="description"
+    content="Jackbox-style party game. Lob horseshoe grenades across a hyperspace void. 4 players, 2 teams, maximum chaos.">
+  <meta name="theme-color" content="#0a0614">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- ═══════ THREE.JS CANVAS ═══════ -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- ═══════ SCREEN EFFECTS ═══════ -->
+  <div id="screen-flash"></div>
+  <div id="vignette"></div>
+  <div id="border-flash"></div>
+
+  <!-- ═══════════════════════════════════
+       LANDING / ROLE SELECT SCREEN
+       ═══════════════════════════════════ -->
+  <div id="landing-screen">
+    <div class="landing-inner">
+      <h1>DEGEN<br>HORSESHOES 💣</h1>
+      <p class="subtitle">💣 HYPERSPACE ARENA 💣</p>
+      <div class="landing-buttons">
+        <button id="btn-host" class="landing-btn host">HOST GAME</button>
+        <div class="landing-divider"><span>OR</span></div>
+        <div class="join-row">
+          <input type="text" id="join-code-input" maxlength="4" placeholder="CODE" autocomplete="off"
+            spellcheck="false">
+          <button id="btn-join" class="landing-btn join">JOIN</button>
+        </div>
+      </div>
+      <p class="landing-footer">Lob grenade horseshoes across a hyperspace void.<br>4 players · 2 teams · Maximum chaos.
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       HOST LOBBY SCREEN
+       ═══════════════════════════════════ -->
+  <div id="host-lobby" class="hidden">
+    <div class="lobby-inner">
+      <div class="lobby-header">
+        <h2>ROOM CODE</h2>
+        <div id="room-code-display" class="room-code">----</div>
+        <p class="lobby-hint">Players join at<br><strong id="join-url-display">this URL</strong></p>
+      </div>
+
+      <div class="lobby-seats">
+        <div class="lobby-team red">
+          <h3>RED TEAM</h3>
+          <div class="seat" data-seat="redA">
+            <div class="seat-label">A</div>
+            <div class="seat-name" id="seat-redA">WAITING...</div>
+            <div class="seat-status empty"></div>
+          </div>
+          <div class="seat" data-seat="redB">
+            <div class="seat-label">B</div>
+            <div class="seat-name" id="seat-redB">WAITING...</div>
+            <div class="seat-status empty"></div>
+          </div>
+        </div>
+        <div class="lobby-team blue">
+          <h3>BLUE TEAM</h3>
+          <div class="seat" data-seat="blueA">
+            <div class="seat-label">A</div>
+            <div class="seat-name" id="seat-blueA">WAITING...</div>
+            <div class="seat-status empty"></div>
+          </div>
+          <div class="seat" data-seat="blueB">
+            <div class="seat-label">B</div>
+            <div class="seat-name" id="seat-blueB">WAITING...</div>
+            <div class="seat-status empty"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lobby-spectators">
+        <h3>SPECTATORS <span id="spec-count">0</span>/8</h3>
+        <div id="spectator-list" class="spectator-list"></div>
+      </div>
+
+      <button id="btn-start-game" class="landing-btn host" disabled>WAITING FOR PLAYERS...</button>
+      <p class="lobby-note">Empty seats will be filled by CPU bots</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       PLAYER CONTROLLER (PHONE VIEW)
+       ═══════════════════════════════════ -->
+  <div id="player-controller" class="hidden">
+    <!-- Waiting in lobby -->
+    <div id="pc-lobby" class="pc-screen">
+      <div class="pc-header">
+        <div id="pc-seat-badge" class="pc-badge">RED A</div>
+        <input type="text" id="pc-name-input" class="pc-name" placeholder="Your Name" maxlength="12">
+      </div>
+      <div class="pc-status">
+        <div class="pc-emoji">🎯</div>
+        <p>You're in! Waiting for host to start...</p>
+      </div>
+      <div id="pc-lobby-seats" class="pc-lobby-seats"></div>
+    </div>
+
+    <!-- Active throw controls -->
+    <div id="pc-controls" class="pc-screen hidden">
+      <div id="pc-timer-display" class="pc-timer">8.0</div>
+
+      <div class="pc-aim-zone" id="pc-aim-zone">
+        <div class="pc-aim-label">DRAG TO AIM</div>
+        <div id="pc-aim-reticle" class="pc-reticle"></div>
+      </div>
+
+      <div class="pc-power-zone">
+        <button id="pc-throw-btn" class="pc-throw-btn">
+          <span class="pc-throw-label">HOLD TO CHARGE</span>
+          <div id="pc-power-bar" class="pc-power-bar">
+            <div id="pc-power-fill" class="pc-power-fill"></div>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Waiting for turn -->
+    <div id="pc-waiting" class="pc-screen hidden">
+      <div id="pc-waiting-content" class="pc-waiting-inner">
+        <div class="pc-emoji">👀</div>
+        <p id="pc-waiting-text">Watching the action...</p>
+        <div id="pc-score-mini" class="pc-score-mini">
+          <span class="red">RED: <strong>0</strong></span>
+          <span class="blue">BLUE: <strong>0</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spectator view -->
+    <div id="pc-spectator" class="pc-screen hidden">
+      <div class="pc-waiting-inner">
+        <div class="pc-emoji">📺</div>
+        <p>Spectating</p>
+        <div id="pc-spec-score" class="pc-score-mini">
+          <span class="red">RED: <strong>0</strong></span>
+          <span class="blue">BLUE: <strong>0</strong></span>
+        </div>
+        <div id="pc-spec-feed" class="pc-feed"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       GAME HUD (HOST SCREEN DURING PLAY)
+       ═══════════════════════════════════ -->
+  <div id="hud">
+    <!-- Scoreboard -->
+    <div id="scoreboard">
+      <div class="team-score red">
+        <div class="team-label">RED</div>
+        <div class="score-value" id="red-score">0</div>
+      </div>
+      <div class="score-divider"></div>
+      <div class="team-score blue">
+        <div class="team-label">BLUE</div>
+        <div class="score-value" id="blue-score">0</div>
+      </div>
+    </div>
+
+    <!-- Round -->
+    <div id="round-indicator">ROUND 1 OF 6</div>
+
+    <!-- Active Player Badge -->
+    <div id="active-player-badge">
+      <div id="player-color-dot"></div>
+      <div id="player-name-display">---</div>
+    </div>
+
+    <!-- Fuse Timer -->
+    <div id="fuse-timer-container">
+      <div id="fuse-timer">8.0</div>
+      <div id="fuse-label">FUSE</div>
+    </div>
+
+    <!-- Power Meter -->
+    <div id="power-meter-container">
+      <div id="power-meter">
+        <div id="power-fill"></div>
+        <div class="power-zones">
+          <div class="power-zone-label" style="bottom: 90%">💥</div>
+          <div class="power-zone-label" style="bottom: 70%">HOT</div>
+          <div class="power-zone-label" style="bottom: 40%">SWEET</div>
+          <div class="power-zone-label" style="bottom: 20%">SHORT</div>
+          <div class="power-zone-label" style="bottom: 5%">WEAK</div>
+        </div>
+      </div>
+      <div id="power-pct">0%</div>
+    </div>
+
+    <!-- Aim Indicator -->
+    <div id="aim-indicator">
+      <div id="aim-crosshair-h"></div>
+      <div id="aim-crosshair-v"></div>
+      <div id="aim-dot"></div>
+    </div>
+
+    <!-- Controls hint -->
+    <div id="controls-hint"></div>
+  </div>
+
+  <!-- ═══════ SPLASH OVERLAY ═══════ -->
+  <div id="splash-overlay"></div>
+
+  <!-- ═══════ ROUND SUMMARY ═══════ -->
+  <div id="round-summary">
+    <div class="summary-card">
+      <h2>ROUND COMPLETE</h2>
+      <div class="summary-scores">
+        <div class="summary-team red">
+          <div class="label">RED</div>
+          <div class="value">0</div>
+        </div>
+        <div class="summary-team blue">
+          <div class="label">BLUE</div>
+          <div class="value">0</div>
+        </div>
+      </div>
+      <div class="summary-events"></div>
+    </div>
+  </div>
+
+  <!-- ═══════ GAME OVER ═══════ -->
+  <div id="game-over-screen">
+    <div class="winner-text">TEAM WINS!</div>
+    <div class="summary-card">
+      <div class="summary-scores">
+        <div class="summary-team red">
+          <div class="label">RED</div>
+          <div class="value">0</div>
+        </div>
+        <div class="summary-team blue">
+          <div class="label">BLUE</div>
+          <div class="value">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="mvp-callout">🏆 MVP: ---</div>
+    <button id="play-again-btn">PLAY AGAIN</button>
+  </div>
+
+  <!-- ═══════ SCRIPTS ═══════ -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="audio.js"></script>
+  <script src="scene.js"></script>
+  <script src="network.js"></script>
+  <script src="game.js"></script>
+  <script src="controller.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
