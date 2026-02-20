@@ -193,8 +193,7 @@ body {
   background: var(--hud-glass);
   border: 2px solid var(--void-glow);
   padding: 0.9rem 1.5rem;
-  min-width: 90px;
-  width: auto;
+  width: 100%;
 }
 
 .landing-btn.join:hover {
@@ -236,13 +235,15 @@ body {
 
 .join-row {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
   width: 100%;
   max-width: 320px;
 }
 
 #join-code-input {
-  flex: 1;
+  width: 100%;
   padding: 0.8rem 1rem;
   border-radius: 10px;
   border: 2px solid var(--hud-border);
