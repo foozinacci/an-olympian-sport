@@ -1,15 +1,19 @@
 /* ═══════════════════════════════════════════
-   DEGEN HORSESHOES 💣 — APP BOOTSTRAPPER
+   AN OLYMPIAN SPORT 💣 — APP BOOTSTRAPPER
    Wires together Network, Game, Controller
    ═══════════════════════════════════════════ */
 
 const App = (() => {
     const $ = id => document.getElementById(id);
     let currentView = 'landing';
+    let connectionTimeout = null;
 
     function init() {
         setupLanding();
         setupNameInput();
+        // Init audio on any first interaction
+        document.addEventListener('click', () => AudioEngine.init(), { once: true });
+        document.addEventListener('touchstart', () => AudioEngine.init(), { once: true });
     }
 
     /* ══════════════════════════════════
@@ -48,11 +52,12 @@ const App = (() => {
        HOST FLOW
        ══════════════════════════════════ */
     function startAsHost() {
-        const code = Network.hostGame(handleHostEvent);
+        // Show lobby immediately with "connecting..." state
         showView('host-lobby');
+        $('room-code-display').textContent = '...';
+        $('join-url-display').textContent = window.location.host || window.location.hostname;
 
-        $('room-code-display').textContent = code;
-        $('join-url-display').textContent = window.location.host;
+        const code = Network.hostGame(handleHostEvent);
 
         $('btn-start-game').addEventListener('click', () => {
             AudioEngine.uiClick();
@@ -63,7 +68,10 @@ const App = (() => {
     function handleHostEvent(event, data) {
         switch (event) {
             case 'roomCreated':
+                console.log('[APP] Room created:', data.code);
                 $('room-code-display').textContent = data.code;
+                $('host-status').textContent = '✅ Room live — waiting for players';
+                $('host-status').style.color = '#00ff66';
                 break;
 
             case 'lobbyUpdated':
@@ -81,11 +89,15 @@ const App = (() => {
                 break;
 
             case 'playerDisconnected':
-                console.log(`[HOST] ${data.name} disconnected from seat ${data.seat}`);
+                console.log(`[APP] ${data.name} disconnected from seat ${data.seat}`);
+                // TODO: could show a toast notification on the host screen
                 break;
 
             case 'error':
-                console.error('[HOST] Error:', data.message);
+                console.error('[APP] Host error:', data.message);
+                $('room-code-display').textContent = 'ERR';
+                $('host-status').textContent = '❌ ' + (data.message || 'Connection error');
+                $('host-status').style.color = '#ff4444';
                 break;
         }
     }
@@ -123,7 +135,6 @@ const App = (() => {
     }
 
     function handleRemotePlayerInput(data) {
-        // Forward remote input as if it were local keyboard input
         const { seat, type: inputType } = data;
 
         // Only process if it's the active player's seat
@@ -151,27 +162,43 @@ const App = (() => {
     function startAsPlayer(code) {
         const name = localStorage.getItem('degen-name') || 'Player';
 
-        Network.joinGame(code, name, 'player', handlePlayerEvent);
+        // Show controller screen with "connecting" status
         showView('player-controller');
-
-        $('pc-name-input').value = name;
         Controller.showLobby();
+        $('pc-name-input').value = name;
+        setJoinStatus('connecting', `Connecting to room ${code}...`);
+
+        // Set a timeout — if PeerJS doesn't connect in 8 seconds, show error
+        connectionTimeout = setTimeout(() => {
+            setJoinStatus('error', `Could not find room ${code}. Check the code and try again.`);
+        }, 8000);
+
+        Network.joinGame(code, name, 'player', handlePlayerEvent);
     }
 
     function handlePlayerEvent(event, data) {
         switch (event) {
             case 'joined':
+                // Clear timeout — we connected!
+                if (connectionTimeout) { clearTimeout(connectionTimeout); connectionTimeout = null; }
+
                 Controller.init(data.seat, data.name);
                 $('pc-seat-badge').textContent = data.seatLabel;
                 $('pc-seat-badge').className = `pc-badge ${data.seat.startsWith('red') ? 'red' : 'blue'}`;
+                setJoinStatus('connected', `Joined as ${data.seatLabel}!`);
+
                 if (data.role === 'spectator') {
                     Controller.showSpectator();
+                    setJoinStatus('connected', 'Joined as spectator');
                 }
                 break;
 
             case 'joinDenied':
-                alert(data.reason);
-                showView('landing');
+                if (connectionTimeout) { clearTimeout(connectionTimeout); connectionTimeout = null; }
+                setJoinStatus('error', data.reason || 'Join denied');
+                setTimeout(() => {
+                    showView('landing');
+                }, 2000);
                 break;
 
             case 'lobbyUpdated':
@@ -202,21 +229,46 @@ const App = (() => {
                 break;
 
             case 'splash':
-                // Could show splash text on phone too
                 Controller.addFeedItem(data.text || '');
                 break;
 
             case 'disconnected':
-                alert('Disconnected from host');
-                showView('landing');
-                Network.destroy();
+                if (connectionTimeout) { clearTimeout(connectionTimeout); connectionTimeout = null; }
+                setJoinStatus('error', 'Disconnected from host');
+                setTimeout(() => {
+                    showView('landing');
+                    Network.destroy();
+                }, 2000);
                 break;
 
             case 'error':
-                alert(data.message);
-                showView('landing');
-                Network.destroy();
+                if (connectionTimeout) { clearTimeout(connectionTimeout); connectionTimeout = null; }
+                setJoinStatus('error', data.message || 'Connection error');
+                setTimeout(() => {
+                    showView('landing');
+                    Network.destroy();
+                }, 3000);
                 break;
+        }
+    }
+
+    /* ── Join status display (shown on phone controller lobby) ── */
+    function setJoinStatus(status, text) {
+        const statusEl = document.querySelector('.pc-status');
+        if (!statusEl) return;
+
+        const emojiEl = statusEl.querySelector('.pc-emoji');
+        const textEl = statusEl.querySelector('p');
+
+        if (status === 'connecting') {
+            if (emojiEl) emojiEl.textContent = '⏳';
+            if (textEl) textEl.textContent = text;
+        } else if (status === 'connected') {
+            if (emojiEl) emojiEl.textContent = '🎯';
+            if (textEl) textEl.textContent = text;
+        } else if (status === 'error') {
+            if (emojiEl) emojiEl.textContent = '❌';
+            if (textEl) { textEl.textContent = text; textEl.style.color = '#ff4444'; }
         }
     }
 

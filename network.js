@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   DEGEN HORSESHOES 💣 — NETWORK LAYER
+   AN OLYMPIAN SPORT 💣 — NETWORK LAYER
    PeerJS-based P2P multiplayer with join codes
    Host = game authority, Players = phone controllers
    ═══════════════════════════════════════════ */
@@ -28,6 +28,15 @@ const Network = (() => {
         started: false,
     };
 
+    // ICE servers for NAT traversal
+    const ICE_SERVERS = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+    ];
+
     /* ══════════════════════════════════
        ROOM CODE GENERATION
        ══════════════════════════════════ */
@@ -48,30 +57,30 @@ const Network = (() => {
         role = 'host';
         roomCode = generateRoomCode();
 
-        // PeerJS ID = "DEGEN-{code}" so joiners can find us
-        const peerId = `DEGEN-${roomCode}`;
+        // PeerJS ID = "OLYMP-{code}" so joiners can find us
+        const peerId = `OLYMP-${roomCode}`;
+
+        console.log(`[NET] Creating host peer: ${peerId}`);
 
         peer = new Peer(peerId, {
-            debug: 0,
+            debug: 2, // increased debug for troubleshooting
             config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                ]
+                iceServers: ICE_SERVERS,
             }
         });
 
         peer.on('open', id => {
-            console.log(`[HOST] Room created: ${roomCode} (peer: ${id})`);
+            console.log(`[NET] ✅ Host peer OPEN: ${id}, room code: ${roomCode}`);
             emit('roomCreated', { code: roomCode });
         });
 
         peer.on('connection', conn => {
+            console.log(`[NET] Incoming connection from: ${conn.peer}`);
             handleIncomingConnection(conn);
         });
 
         peer.on('error', err => {
-            console.error('[HOST] Peer error:', err);
+            console.error('[NET] Host peer error:', err.type, err.message);
             if (err.type === 'unavailable-id') {
                 // Room code collision — regenerate
                 roomCode = generateRoomCode();
@@ -82,19 +91,34 @@ const Network = (() => {
             }
         });
 
+        peer.on('disconnected', () => {
+            console.warn('[NET] Host peer disconnected from signaling. Attempting reconnect...');
+            if (peer && !peer.destroyed) {
+                peer.reconnect();
+            }
+        });
+
         return roomCode;
     }
 
     function handleIncomingConnection(conn) {
+        console.log(`[NET] Waiting for connection to open from: ${conn.peer}`);
+
         conn.on('open', () => {
-            console.log(`[HOST] Peer connected: ${conn.peer}`);
+            console.log(`[NET] ✅ Connection OPEN from: ${conn.peer}`);
 
             conn.on('data', data => {
+                console.log(`[NET] Data from ${conn.peer}:`, data.type);
                 handleHostMessage(conn, data);
             });
 
             conn.on('close', () => {
+                console.log(`[NET] Connection closed: ${conn.peer}`);
                 handleDisconnect(conn.peer);
+            });
+
+            conn.on('error', err => {
+                console.error(`[NET] Connection error from ${conn.peer}:`, err);
             });
         });
     }
@@ -134,6 +158,8 @@ const Network = (() => {
                         return;
                     }
                 }
+
+                console.log(`[NET] ✅ Player joined: ${name} as ${assignedRole} (seat: ${assignedSeat})`);
 
                 // Confirm to joiner
                 conn.send({
@@ -267,6 +293,7 @@ const Network = (() => {
         });
 
         const names = PLAYER_SEATS.map(s => lobby.players[s].name);
+        console.log(`[NET] 🎮 Game starting with:`, names);
         broadcast({ type: 'gameStarted', names });
         broadcastLobby();
         emit('gameStart', { names });
@@ -280,22 +307,24 @@ const Network = (() => {
         role = wantRole;
         roomCode = code.toUpperCase();
 
+        console.log(`[NET] Joining room: ${roomCode} as ${name}`);
+
         peer = new Peer(undefined, {
-            debug: 0,
+            debug: 2,
             config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                ]
+                iceServers: ICE_SERVERS,
             }
         });
 
-        peer.on('open', () => {
-            const hostPeerId = `DEGEN-${roomCode}`;
+        peer.on('open', myId => {
+            console.log(`[NET] ✅ Client peer OPEN: ${myId}`);
+            const hostPeerId = `OLYMP-${roomCode}`;
+            console.log(`[NET] Connecting to host: ${hostPeerId}`);
+
             hostConn = peer.connect(hostPeerId, { reliable: true });
 
             hostConn.on('open', () => {
-                console.log(`[CLIENT] Connected to host: ${roomCode}`);
+                console.log(`[NET] ✅ Connected to host!`);
                 hostConn.send({
                     type: 'joinRequest',
                     name,
@@ -304,21 +333,36 @@ const Network = (() => {
             });
 
             hostConn.on('data', data => {
+                console.log(`[NET] Data from host:`, data.type);
                 handleClientMessage(data);
             });
 
             hostConn.on('close', () => {
+                console.log(`[NET] Host connection closed`);
                 emit('disconnected', { reason: 'Host disconnected' });
             });
 
             hostConn.on('error', err => {
-                emit('error', { message: 'Connection failed' });
+                console.error(`[NET] Host connection error:`, err);
+                emit('error', { message: 'Connection to host failed' });
             });
         });
 
         peer.on('error', err => {
-            console.error('[CLIENT] Peer error:', err);
-            emit('error', { message: err.type === 'peer-unavailable' ? 'Room not found' : err.message });
+            console.error('[NET] Client peer error:', err.type, err.message);
+            if (err.type === 'peer-unavailable') {
+                emit('error', { message: `Room "${roomCode}" not found. Check the code!` });
+            } else if (err.type === 'network') {
+                emit('error', { message: 'Network error — check your connection' });
+            } else if (err.type === 'server-error') {
+                emit('error', { message: 'PeerJS server error — try again' });
+            } else {
+                emit('error', { message: err.message || 'Connection error' });
+            }
+        });
+
+        peer.on('disconnected', () => {
+            console.warn('[NET] Client peer disconnected from signaling');
         });
     }
 

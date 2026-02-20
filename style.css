@@ -330,6 +330,14 @@ body {
   font-weight: 600;
 }
 
+.host-status {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 0.8rem;
+  transition: color 0.3s;
+}
+
 .lobby-seats {
   display: flex;
   gap: 1.5rem;

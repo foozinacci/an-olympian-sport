@@ -102,8 +102,20 @@ const Game = (() => {
        INPUT
        ══════════════════════════════════ */
     function setupInput() {
+        // Guard: keyboard only works if active player seat is CPU (no remote connected)
+        function keyboardAllowed() {
+            if (typeof Network === 'undefined' || !Network.isHost()) return true;
+            if (!state) return false;
+            const activeKey = state.turnOrder[state.currentTurnIndex];
+            const lobby = Network.lobby;
+            const seatInfo = lobby.players[activeKey];
+            // Allow keyboard only if seat is CPU (no remote player connected)
+            return seatInfo && seatInfo.isCPU;
+        }
+
         document.addEventListener('keydown', e => {
             if (gamePhase !== 'aiming') return;
+            if (!keyboardAllowed()) return;
             switch (e.key.toLowerCase()) {
                 case 'a': inputState.left = true; break;
                 case 'd': inputState.right = true; break;
@@ -123,6 +135,7 @@ const Game = (() => {
         });
 
         document.addEventListener('keyup', e => {
+            if (!keyboardAllowed()) return;
             switch (e.key.toLowerCase()) {
                 case 'a': inputState.left = false; break;
                 case 'd': inputState.right = false; break;
