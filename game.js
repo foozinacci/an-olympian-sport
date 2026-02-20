@@ -102,15 +102,15 @@ const Game = (() => {
        INPUT
        ══════════════════════════════════ */
     function setupInput() {
-        // Guard: keyboard only works if active player seat is CPU (no remote connected)
+        // Guard: keyboard only allowed in solo/local play (no network)
+        // When network is active, bots auto-throw and remote players use phones
         function keyboardAllowed() {
-            if (typeof Network === 'undefined' || !Network.isHost()) return true;
-            if (!state) return false;
-            const activeKey = state.turnOrder[state.currentTurnIndex];
-            const lobby = Network.lobby;
-            const seatInfo = lobby.players[activeKey];
-            // Allow keyboard only if seat is CPU (no remote player connected)
-            return seatInfo && seatInfo.isCPU;
+            // If network exists and we're hosting, keyboard is disabled
+            // (bots auto-play, remote players use phones)
+            if (typeof Network !== 'undefined' && Network.isHost()) return false;
+            // No network = solo local play, keyboard is fine
+            if (typeof Network === 'undefined') return true;
+            return false;
         }
 
         document.addEventListener('keydown', e => {
@@ -205,24 +205,10 @@ const Game = (() => {
     function showControlsHint() {
         const hint = $('controls-hint');
         const touchOverlay = $('touch-overlay');
-
-        // If it's a remote player's turn, don't show any local controls
-        if (typeof Network !== 'undefined' && Network.isHost() && state) {
-            const activeKey = state.turnOrder[state.currentTurnIndex];
-            const lobby = Network.lobby;
-            const seatInfo = lobby.players[activeKey];
-            if (seatInfo && !seatInfo.isCPU && seatInfo.peerId) {
-                // Remote player's turn — hide all local controls
-                if (hint) hint.classList.remove('active');
-                if (touchOverlay) { touchOverlay.classList.remove('active'); touchOverlay.classList.add('hidden'); }
-                return;
-            }
-        }
-
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         if (isTouchDevice) {
-            // Mobile host — show touch overlay
+            // Mobile — show touch overlay for aiming + throwing
             if (hint) hint.classList.remove('active');
             if (touchOverlay) {
                 touchOverlay.classList.remove('hidden');
@@ -233,7 +219,7 @@ const Game = (() => {
                 touchInputSetup = true;
             }
         } else {
-            // Desktop — show keyboard hint
+            // Desktop — show keyboard hint (WASD + SPACE)
             if (hint) hint.classList.add('active');
             if (touchOverlay) {
                 touchOverlay.classList.add('hidden');
@@ -426,9 +412,6 @@ const Game = (() => {
         // Update active player badge
         updatePlayerBadge(player);
 
-        // Show controls hint (only if host is also playing locally)
-        showControlsHint();
-
         // Broadcast turn start to connected players
         if (typeof Network !== 'undefined' && Network.isHost()) {
             const playerKey = state.turnOrder[state.currentTurnIndex];
@@ -445,6 +428,73 @@ const Game = (() => {
         // Start fuse hiss sound
         if (fuseHiss) fuseHiss.stop();
         fuseHiss = AudioEngine.startFuseHiss();
+
+        // CHECK: Is this a CPU seat? Auto-throw!
+        if (isCPUTurn()) {
+            hideControlsHint();
+            scheduleCPUThrow();
+        } else if (isLocalHumanTurn()) {
+            // Show controls hint for local human player
+            showControlsHint();
+        } else {
+            // Remote player's turn — hide local controls
+            hideControlsHint();
+        }
+    }
+
+    /* ── CPU / seat helpers ── */
+    function isCPUTurn() {
+        if (typeof Network === 'undefined') return false;
+        if (!Network.isHost() || !state) return false;
+        const activeKey = state.turnOrder[state.currentTurnIndex];
+        const seatInfo = Network.lobby.players[activeKey];
+        return seatInfo && seatInfo.isCPU;
+    }
+
+    function isRemoteTurn() {
+        if (typeof Network === 'undefined') return false;
+        if (!Network.isHost() || !state) return false;
+        const activeKey = state.turnOrder[state.currentTurnIndex];
+        const seatInfo = Network.lobby.players[activeKey];
+        return seatInfo && !seatInfo.isCPU && seatInfo.peerId;
+    }
+
+    function isLocalHumanTurn() {
+        // Local human turn = either no network at all, or network host with no remote player on this seat
+        if (typeof Network === 'undefined') return true; // Solo play
+        if (!Network.isHost()) return false;
+        return !isCPUTurn() && !isRemoteTurn();
+    }
+
+    /* ── CPU Auto-throw AI ── */
+    let cpuThrowTimeout = null;
+    function scheduleCPUThrow() {
+        // Random delay 1-2.5 seconds, then throw
+        const delay = 1000 + Math.random() * 1500;
+        cpuThrowTimeout = setTimeout(() => {
+            if (gamePhase !== 'aiming') return;
+
+            // Random aim: slight horizontal offset, decent vertical
+            currentAimH = (Math.random() - 0.5) * 1.2; // -0.6 to 0.6
+            currentAimV = 0.4 + Math.random() * 0.3; // 0.4 to 0.7
+            GameScene.setAim(currentAimH, currentAimV);
+
+            // Start charging
+            powerCharging = true;
+            currentPower = 0;
+            $('power-meter-container').classList.add('active');
+
+            // Charge for 0.5-1.2 seconds, then release
+            const chargeTime = 500 + Math.random() * 700;
+            setTimeout(() => {
+                if (gamePhase !== 'aiming') return;
+                // Land in sweet spot: 0.35 - 0.65 power
+                currentPower = 0.35 + Math.random() * 0.3;
+                updatePowerMeter(currentPower);
+                powerCharging = false;
+                executeThrow();
+            }, chargeTime);
+        }, delay);
     }
 
     /* ══════════════════════════════════
@@ -504,6 +554,7 @@ const Game = (() => {
             if (remaining <= 0) {
                 clearInterval(timerInterval);
                 stopAimLoop();
+                if (cpuThrowTimeout) { clearTimeout(cpuThrowTimeout); cpuThrowTimeout = null; }
                 handleTimerExpired(player);
             }
         }, 100);

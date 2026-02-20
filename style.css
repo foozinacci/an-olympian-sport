@@ -62,6 +62,8 @@ body {
   background: var(--void-bg);
   color: var(--hud-text);
   font-family: var(--font-body);
+  /* Allow dvh for mobile browser chrome */
+  height: 100dvh;
 }
 
 /* ── Canvas ── */
@@ -90,6 +92,9 @@ body {
   justify-content: center;
   background: radial-gradient(ellipse at center, var(--void-purple) 0%, var(--void-bg) 70%);
   transition: opacity 0.6s ease, transform 0.6s ease;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 #landing-screen.hidden {
@@ -102,6 +107,8 @@ body {
   text-align: center;
   max-width: 440px;
   width: 90%;
+  padding: 1.5rem 0;
+  margin: auto;
 }
 
 #landing-screen h1 {
@@ -282,13 +289,16 @@ body {
   justify-content: center;
   background: radial-gradient(ellipse at center, var(--void-purple) 0%, var(--void-bg) 70%);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 .lobby-inner {
   text-align: center;
   max-width: 600px;
   width: 90%;
-  padding: 2rem 0;
+  padding: 1.5rem 0;
+  margin: auto;
 }
 
 .lobby-header {
@@ -1930,15 +1940,59 @@ body.shake-heavy {
     font-size: 2.5rem;
   }
 
-  /* Hide keyboard hint on mobile — touch overlay takes over */
-  .controls-hint {
-    display: none !important;
+  .landing-footer {
+    margin-top: 1rem;
+  }
+
+  .lobby-header {
+    margin-bottom: 1rem;
+  }
+
+  .lobby-note {
+    margin-top: 0.3rem;
   }
 }
 
-/* Desktop override — never show touch overlay from CSS if no touch */
-@media (min-width: 769px) and (hover: hover) and (pointer: fine) {
-  .touch-overlay {
-    display: none !important;
+/* Landscape mobile — ultra-compact */
+@media (max-height: 500px) {
+  #landing-screen h1 {
+    font-size: 1.6rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .landing-subtitle {
+    font-size: 0.55rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .landing-btn {
+    padding: 0.6rem 1.5rem;
+    font-size: 0.8rem;
+  }
+
+  .landing-footer {
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .landing-divider {
+    margin: 0.3rem 0;
+  }
+
+  .room-code {
+    font-size: 2rem;
+    letter-spacing: 0.2em;
+  }
+
+  .lobby-header {
+    margin-bottom: 0.5rem;
+  }
+
+  .lobby-seats {
+    gap: 0.5rem;
+  }
+
+  .seat {
+    padding: 0.4rem 0.6rem;
   }
 }
