@@ -1090,13 +1090,7 @@ const Game = (() => {
         if (name) name.textContent = player.name;
     }
 
-    function showControlsHint() {
-        const hint = $('controls-hint');
-        if (hint) {
-            hint.style.display = 'block';
-            hint.innerHTML = `<kbd>A</kbd><kbd>D</kbd> aim &nbsp; <kbd>W</kbd><kbd>S</kbd> arc &nbsp; Hold <kbd>SPACE</kbd> power → release to throw`;
-        }
-    }
+    // showControlsHint is defined earlier near line 207 — no duplicate needed here
 
     /* ══════════════════════════════════
        SPLASHES

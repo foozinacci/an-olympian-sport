@@ -209,8 +209,9 @@
       <div id="aim-dot"></div>
     </div>
 
-    <!-- Controls hint (keyboard) -->
+    <!-- Controls hint (keyboard — desktop) -->
     <div id="controls-hint" class="controls-hint">
+      <div class="controls-your-turn">🎯 YOUR TURN!</div>
       <div class="controls-keys">
         <div class="key-row">
           <div class="key">W</div>
@@ -223,21 +224,21 @@
       </div>
       <div class="controls-labels">
         <div class="ctrl-label">WASD — AIM</div>
-        <div class="ctrl-label">SPACE — HOLD TO CHARGE, RELEASE TO THROW</div>
       </div>
       <div class="key-row">
-        <div class="key space-key">SPACE</div>
+        <div class="key space-key">HOLD SPACE → RELEASE TO THROW</div>
       </div>
     </div>
 
     <!-- Touch overlay (mobile host) -->
     <div id="touch-overlay" class="touch-overlay hidden">
+      <div class="touch-turn-banner">🎯 YOUR TURN!</div>
       <div id="touch-aim-zone" class="touch-aim-zone">
-        <div class="touch-aim-label">DRAG TO AIM</div>
+        <div class="touch-step-label">① DRAG TO AIM</div>
         <div id="touch-reticle" class="touch-reticle"></div>
       </div>
       <button id="touch-throw-btn" class="touch-throw-btn">
-        <span class="touch-throw-label">HOLD TO CHARGE</span>
+        <span class="touch-throw-label">② HOLD TO CHARGE · RELEASE TO THROW</span>
         <div id="touch-power-bar" class="touch-power-bar">
           <div id="touch-power-fill" class="touch-power-fill"></div>
         </div>
