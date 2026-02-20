@@ -59,6 +59,9 @@ const App = (() => {
 
         const code = Network.hostGame(handleHostEvent);
 
+        // Immediately show the host's seat (Red A = YOU) in lobby
+        updateHostLobby(Network.getLobbyState());
+
         $('btn-start-game').addEventListener('click', () => {
             AudioEngine.uiClick();
             Network.hostStartGame();
@@ -107,7 +110,10 @@ const App = (() => {
         lobbyState.seats.forEach(s => {
             const el = $(`seat-${s.key}`);
             if (el) {
-                el.textContent = s.taken ? s.name : 'WAITING...';
+                // Show 'YOU (HOST)' for the host's own seat
+                const playerInfo = lobbyState.players[s.key];
+                const isHostSeat = playerInfo && playerInfo.isHost;
+                el.textContent = s.taken ? (isHostSeat ? 'YOU (HOST)' : s.name) : 'WAITING...';
                 el.parentElement.classList.toggle('filled', s.taken);
                 el.parentElement.querySelector('.seat-status').className =
                     `seat-status ${s.taken ? 'filled' : 'empty'}`;

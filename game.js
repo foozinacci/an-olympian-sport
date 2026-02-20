@@ -102,14 +102,16 @@ const Game = (() => {
        INPUT
        ══════════════════════════════════ */
     function setupInput() {
-        // Guard: keyboard only allowed in solo/local play (no network)
-        // When network is active, bots auto-throw and remote players use phones
+        // Guard: keyboard allowed for the host's OWN seat, or in solo play
         function keyboardAllowed() {
-            // If network exists and we're hosting, keyboard is disabled
-            // (bots auto-play, remote players use phones)
-            if (typeof Network !== 'undefined' && Network.isHost()) return false;
-            // No network = solo local play, keyboard is fine
+            // No network = solo local play, keyboard always works
             if (typeof Network === 'undefined') return true;
+            // Host can use keyboard ONLY for their own seat (isHost flag)
+            if (Network.isHost() && state) {
+                const activeKey = state.turnOrder[state.currentTurnIndex];
+                const seatInfo = Network.lobby.players[activeKey];
+                return seatInfo && seatInfo.isHost;
+            }
             return false;
         }
 
@@ -456,14 +458,17 @@ const Game = (() => {
         if (!Network.isHost() || !state) return false;
         const activeKey = state.turnOrder[state.currentTurnIndex];
         const seatInfo = Network.lobby.players[activeKey];
-        return seatInfo && !seatInfo.isCPU && seatInfo.peerId;
+        // Remote = has peerId, not CPU, and NOT the host's own seat
+        return seatInfo && !seatInfo.isCPU && !seatInfo.isHost && seatInfo.peerId;
     }
 
     function isLocalHumanTurn() {
-        // Local human turn = either no network at all, or network host with no remote player on this seat
+        // Local human turn = host's own seat, or solo play (no network)
         if (typeof Network === 'undefined') return true; // Solo play
-        if (!Network.isHost()) return false;
-        return !isCPUTurn() && !isRemoteTurn();
+        if (!Network.isHost() || !state) return false;
+        const activeKey = state.turnOrder[state.currentTurnIndex];
+        const seatInfo = Network.lobby.players[activeKey];
+        return seatInfo && seatInfo.isHost;
     }
 
     /* ── CPU Auto-throw AI ── */

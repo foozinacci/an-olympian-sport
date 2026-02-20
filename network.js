@@ -57,6 +57,9 @@ const Network = (() => {
         role = 'host';
         roomCode = generateRoomCode();
 
+        // Host always claims seat redA (Player 1)
+        lobby.players['redA'] = { name: 'HOST', peerId: '__host__', isHost: true };
+
         // PeerJS ID = "OLYMP-{code}" so joiners can find us
         const peerId = `OLYMP-${roomCode}`;
 
